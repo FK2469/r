@@ -7,8 +7,8 @@ try:
     UPLOAD_FOLDER = permdir.get_permdir()
 except ImportError:
     _SQL_PARAMS = {
-        'passwd': '',
-        'host': '127.0.0.1',
+        'passwd': 'admin',
+        'host': 'db',
         'db': 'p',
         'port': 3306,
         'user': 'root',

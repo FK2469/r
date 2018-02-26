@@ -1,0 +1,27 @@
+version: '3'
+services:
+  web:
+    build: .
+    container_name: r_server
+    ports:
+      - 5000:5000
+    volumes:
+      - .:/code
+    restart: unless-stopped
+    links:
+      - db
+  db:
+    image: mysql:5.7
+    container_name: r_db
+    expose:
+      - "3306"
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: p
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: admin
+    volumes:
+      - ./databases:/docker-entrypoint-initdb.d
+      - datavolume:/var/lib/mysql
+volumes:
+  datavolume:
