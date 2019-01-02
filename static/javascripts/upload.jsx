@@ -79,7 +79,7 @@ export default class DragAndDrop extends React.Component {
                     arrowHover: false,
                     holderShow: true,
                 });
-            }.bind(this), 2000);
+            }, 2000);
             return
         }
         var formData = this.props.tests.formdata ? new FormData() : null;
