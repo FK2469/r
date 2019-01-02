@@ -13,7 +13,7 @@ The [R Demo](https://vast-brushlands-4477.herokuapp.com) showcases `r`.
 ```shell
 git clone https://github.com/dongweiming/r
 cd r
-virtualenv venv
+virtualenv -p python3 venv
 source venv/bin/activate
 pip install -r requirements.txt
 mkdir permdir

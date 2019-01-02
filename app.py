@@ -2,7 +2,7 @@
 import os
 import uuid
 import magic
-import urllib
+import urllib.parse
 import json
 from random import choice
 from string import digits, ascii_uppercase, ascii_lowercase
@@ -10,8 +10,8 @@ from datetime import datetime
 
 import cropresize2
 from flask import abort, Flask, request, jsonify, redirect, send_file
-from flask.ext.mako import MakoTemplates, render_template
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_mako import MakoTemplates, render_template
+from flask_sqlalchemy import SQLAlchemy
 from PIL import Image
 
 from mimes import IMAGE_MIMES, AUDIO_MIMES, VIDEO_MIMES
@@ -137,7 +137,8 @@ class PasteFile(db.Model):
 
     @property
     def quoteurl(self):
-        return urllib.quote(self.url_i)
+        print(urllib.parse.quote(self.url_i))
+        return urllib.parse.quote(self.url_i)
 
     @classmethod
     def create_by_img(cls, img, filename, mimetype):
@@ -229,6 +230,7 @@ def is_command_line_request(request):
 @app.route('/r/<img_hash>')
 def rsize(img_hash):
     # TODO: rewrite
+    print(request.args)
     w = request.args['w']
     h = request.args['h']
 
@@ -274,7 +276,7 @@ def download(filehash):
                      mimetype="application/octet-stream",
                      cache_timeout=2592000,
                      as_attachment=True,
-                     attachment_filename=pasteFile.filename.encode("UTF-8"))
+                     attachment_filename=pasteFile.filename)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -368,4 +370,4 @@ def s(symlink):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=debug, port=5001, threaded=True)
+    app.run(host='0.0.0.0', debug=debug)
