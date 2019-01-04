@@ -9,9 +9,12 @@ from ext import db, mako, render_template
 from models import PasteFile
 
 RANDOM_SEQ = ascii_uppercase + ascii_lowercase + digits
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+
 
 app = Flask(__name__)
 app.config.from_object("config")
+
 debug = app.config["DEBUG"]
 if debug:
     from werkzeug import SharedDataMiddleware
@@ -93,6 +96,8 @@ def download(filehash):
 def hello():
     if request.method == 'POST':
         uploadedFile = request.files['file']
+        if not allowed_file(uploadedFile.filename):
+            return abort(400)
         w = request.form.get('w')
         h = request.form.get('h')
         # text file treat as binary file.
@@ -124,8 +129,7 @@ def after_request(response):
 @app.route('/j', methods=['POST'])
 def j():
     uploadedFile = request.files['file']
-
-    if uploadedFile:
+    if uploadedFile and allowed_file(uploadedFile.filename):
         pasteFile = PasteFile.create_by_uploadFile(uploadedFile)
         db.session.add(pasteFile)
         db.session.commit()
@@ -177,6 +181,11 @@ def s(symlink):
 
     file_json = json.dumps(pasteFile.simple_dict())
     return render_template('success.html', title=pasteFile.filename, file_json=file_json)
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 
 if __name__ == "__main__":
