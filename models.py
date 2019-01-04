@@ -2,6 +2,7 @@ import os
 import urllib.parse
 import uuid
 from datetime import datetime
+import hashlib
 
 import cropresize2
 import magic
@@ -13,7 +14,6 @@ from werkzeug.utils import cached_property
 from ext import db
 from mimes import IMAGE_MIMES, AUDIO_MIMES, VIDEO_MIMES
 from config import UPLOAD_FOLDER
-import hashlib
 
 
 class PasteFile(db.Model):
@@ -71,14 +71,28 @@ class PasteFile(db.Model):
         rst = cls(uploadedFile.filename, uploadedFile.mimetype, 0)
         uploadedFile.save(rst.path)
         duplicated = False
+        corrupt = False
+        filepath = None
+
         with open(rst.path, 'rb') as f:
             filemd5 = get_file_md5(f)
             uploadedFile = cls.get_by_md5(filemd5)
-            if uploadedFile:
+
+        if uploadedFile:
+            filepath = os.path.join(UPLOAD_FOLDER, uploadedFile.filehash)
+            if os.path.exists(filepath) or os.path.islink(filepath):
                 duplicated = True
+            else:
+                corrupt = True
+
         if duplicated:
             os.remove(rst.path)
             return uploadedFile
+
+        if corrupt:
+            uploadedFile.filehash = rst.filehash
+            return uploadedFile
+
         filestat = os.stat(rst.path)
         rst.size = filestat.st_size
         rst.filemd5 = filemd5
