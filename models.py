@@ -1,5 +1,9 @@
+# coding=utf-8
 import os
-import urllib.parse
+try:
+    from urllib import quote
+except ImportError:
+    from urllib.parse import quote
 import uuid
 from datetime import datetime
 import hashlib
@@ -158,7 +162,7 @@ class PasteFile(db.Model):
 
     @property
     def quoteurl(self):
-        return urllib.parse.quote(self.url_i)
+        return quote(self.url_i)
 
     @classmethod
     def create_by_img(cls, img, filename, mimetype):
