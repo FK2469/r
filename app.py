@@ -1,20 +1,12 @@
 # coding=utf-8
-import os
-import uuid
-import magic
-import urllib.parse
 import json
-from random import choice
+import os
 from string import digits, ascii_uppercase, ascii_lowercase
-from datetime import datetime
 
-import cropresize2
-from flask import abort, Flask, request, jsonify, redirect, send_file
-from flask_mako import MakoTemplates, render_template
-from flask_sqlalchemy import SQLAlchemy
-from PIL import Image
+from flask import abort, Flask, request, jsonify, send_file
 
-from mimes import IMAGE_MIMES, AUDIO_MIMES, VIDEO_MIMES
+from ext import db, mako, render_template
+from models import PasteFile
 
 RANDOM_SEQ = ascii_uppercase + ascii_lowercase + digits
 
@@ -23,198 +15,16 @@ app.config.from_object("config")
 debug = app.config["DEBUG"]
 if debug:
     from werkzeug import SharedDataMiddleware
+
     app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {
         '/i/': os.path.join(
             os.path.dirname(__file__), app.config["UPLOAD_FOLDER"])
     })
-mako = MakoTemplates(app)
-db = SQLAlchemy(app)
+
+mako.init_app(app)
+db.init_app(app)
 
 command_agent_keys = ['curl', 'wget']
-
-
-class PasteFile(db.Model):
-    __tablename__ = "PasteFile"
-    id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(5000), nullable=False)
-    filehash = db.Column(db.String(128), nullable=False, unique=True)
-    uploadTime = db.Column(db.DateTime, nullable=False)
-    mimetype = db.Column(db.String(256), nullable=False)
-    # collation is for case-sensitive select
-    symlink = db.Column(
-        db.String(50, collation='utf8_bin'), nullable=False, unique=True)
-    size = db.Column(db.Integer, nullable=False)
-
-    def __init__(self, filename="", mimetype="application/octet-stream",
-                 size=0, filehash=None, symlink=None):
-        self.uploadTime = datetime.now()
-        self.mimetype = mimetype
-        self.size = int(size)
-        self.filehash = filehash if filehash else self._hash_filename(filename)
-        self.filename = filename if filename else self.filehash
-        self.symlink = symlink if symlink else self._gen_symlink()
-
-    @staticmethod
-    def _hash_filename(filename):
-        _, _, suffix = filename.rpartition('.')
-        return "%s.%s" % (uuid.uuid4().hex, suffix)
-
-    @staticmethod
-    def _gen_symlink():
-        return "".join(choice(RANDOM_SEQ) for x in range(6))
-
-    @classmethod
-    def get_by_filehash(cls, filehash):
-        return cls.query.filter_by(filehash=filehash).first()
-
-    @classmethod
-    def get_by_symlink(cls, symlink):
-        return cls.query.filter_by(symlink=symlink).first()
-
-    @classmethod
-    def create_by_uploadFile(cls, uploadedFile):
-        # emmm. I'll fill this value later.
-        rst = cls(uploadedFile.filename, uploadedFile.mimetype, 0)
-        uploadedFile.save(rst.path)
-        filestat = os.stat(rst.path)
-        rst.size = filestat.st_size
-        return rst
-
-    @classmethod
-    def create_file_after_crop(cls, uploadedFile, width, height):
-        assert uploadedFile.is_image, TypeError("Unsupported Image Type.")
-
-        img = cropresize2.crop_resize(
-            Image.open(uploadedFile), (int(width), int(height)))
-        rst = cls(uploadedFile.filename, uploadedFile.mimetype, 0)
-        img.save(rst.path)
-
-        filestat = os.stat(rst.path)
-        rst.size = filestat.st_size
-
-        return rst
-
-    @classmethod
-    def create_by_old_paste(cls, filehash, symlink):
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filehash)
-        mimetype = magic.from_file(filepath, mime=True)
-        filestat = os.stat(filepath)
-        size = filestat.st_size
-
-        rst = cls(filehash, mimetype, size, filehash=filehash, symlink=symlink)
-        return rst
-
-    @property
-    def path(self):
-        return os.path.join(app.config["UPLOAD_FOLDER"], self.filehash)
-
-    @property
-    def url_i(self):
-        return "http://{host}/i/{filehash}".format(
-            host=request.host, filehash=self.filehash)
-
-    @property
-    def url_p(self):
-        return "http://{host}/p/{filehash}".format(
-            host=request.host, filehash=self.filehash)
-
-    @property
-    def url_s(self):
-        return "http://{host}/s/{symlink}".format(
-            host=request.host, symlink=self.symlink)
-
-    @property
-    def url_d(self):
-        return "http://{host}/d/{filehash}".format(
-            host=request.host, filehash=self.filehash)
-
-    @property
-    def image_size(self):
-        if self.is_image:
-            im = Image.open(self.path)
-            return im.size
-        return (0, 0)
-
-    @property
-    def quoteurl(self):
-        print(urllib.parse.quote(self.url_i))
-        return urllib.parse.quote(self.url_i)
-
-    @classmethod
-    def create_by_img(cls, img, filename, mimetype):
-        rst = cls(filename, mimetype, 0)
-        img.save(rst.path)
-        filestat = os.stat(rst.path)
-        rst.size = filestat.st_size
-        return rst
-
-    @classmethod
-    def rsize(cls, oldPaste, weight, height):
-        assert oldPaste.is_image
-
-        img = cropresize2.crop_resize(
-            Image.open(oldPaste.path), (int(weight), int(height)))
-
-        return cls.create_by_img(img, oldPaste.filename, oldPaste.mimetype)
-
-    @classmethod
-    def affine(cls, oldPaste, w, h, a):
-        assert oldPaste.is_image
-
-        img_size = (int(w), int(h))
-        img = Image.open(oldPaste.path).transform(
-            img_size, Image.AFFINE, a, Image.BILINEAR)
-
-        return cls.create_by_img(img, oldPaste.filename, oldPaste.mimetype)
-
-    @property
-    def is_image(self):
-        return self.mimetype in IMAGE_MIMES
-
-    @property
-    def is_audio(self):
-        return self.mimetype in AUDIO_MIMES
-
-    @property
-    def is_video(self):
-        return self.mimetype in VIDEO_MIMES
-
-    @property
-    def is_pdf(self):
-        return self.mimetype == "application/pdf"
-
-    @property
-    def size_humanize(self):
-        if self.size < 1024:
-            return "{0} bytes".format(self.size)
-        size = self.size / 1024.0
-        if size < 1024:
-            size = "%.2f" % size
-            return size.rstrip("0").rstrip(".") + " KB"
-        size = size / 1024.0
-        size = "%.2f" % size
-        return size.rstrip("0").rstrip(".") + " MB"
-
-    @property
-    def type(self):
-        may_types = ["image", "pdf", "video", "audio"]
-        for t in may_types:
-            if getattr(self, "is_" + t):
-                return t
-        return "binary"
-
-    def simple_dict(self):
-        return {
-            "url_d": self.url_d,
-            "url_i": self.url_i,
-            "url_s": self.url_s,
-            "url_p": self.url_p,
-            "filename": self.filename,
-            "size": self.size_humanize,
-            "time": str(self.uploadTime),
-            "type": self.type,
-            "quoteurl": self.quoteurl,
-        }
 
 
 def is_command_line_request(request):
@@ -340,17 +150,17 @@ def preview(filehash):
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filehash)
     if not pasteFile:
         # check file exists
-        if not(os.path.exists(filepath) and (not os.path.islink(filepath))):
+        if not (os.path.exists(filepath) and (not os.path.islink(filepath))):
             return abort(404)
 
-        linkfile = os.path.join(
-            app.config['UPLOAD_FOLDER'], filehash.replace('.', '_'))
-        symlink = None
-        if os.path.exists(linkfile):
-            with open(linkfile) as fp:
-                symlink = fp.read().strip()
+        # linkfile = os.path.join(
+        #     app.config['UPLOAD_FOLDER'], filehash.replace('.', '_'))
+        # symlink = None
+        # if os.path.exists(linkfile):
+        #     with open(linkfile) as fp:
+        #         symlink = fp.read().strip()
 
-        pasteFile = PasteFile.create_by_old_paste(filehash, symlink)
+        pasteFile = PasteFile.create_by_old_paste(filehash)
         db.session.add(pasteFile)
         db.session.commit()
 
