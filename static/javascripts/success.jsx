@@ -1,8 +1,9 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import { FileCard } from "./card";
 
 var r = window.file_json;
-React.render(
+ReactDOM.render(
   <FileCard
     filename={r.filename}
     size={r.size}

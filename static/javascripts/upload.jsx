@@ -102,7 +102,11 @@ export default class DragAndDrop extends React.Component {
               progressShow: false,
               holderShow: true
             });
-            alert("上传失败，请确认上传的文件类型合法");
+            if (xhr.status == 400) {
+              alert("上传失败，请确认上传的文件类型合法");
+            } else if (xhr.status == 500) {
+              alert("服务器提了一个问题");
+            }
           }
         }
       }.bind(this);

@@ -62,3 +62,4 @@ package-lock.json
 data
 
 .idea/
+.vscode/

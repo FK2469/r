@@ -51,7 +51,7 @@ export class FileCard extends React.Component {
             <div className="p-link">
               <input
                 type="text"
-                readOnly="true"
+                readOnly={true}
                 value={this.props.url_s}
                 id="link_s"
               />
@@ -111,7 +111,7 @@ export class ImageCard extends React.Component {
               <img src={this.props.url_i} onClick={this.onClick} />
               <div id="image-link">
                 <input
-                  readOnly="true"
+                  readOnly={true}
                   type="text"
                   value={this.props.image_link_input}
                 />

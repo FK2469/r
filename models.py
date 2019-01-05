@@ -14,7 +14,6 @@ import short_url
 from PIL import Image
 from flask import abort, request
 from werkzeug.utils import cached_property
-from werkzeug import secure_filename
 
 from ext import db
 from mimes import IMAGE_MIMES, AUDIO_MIMES, VIDEO_MIMES
@@ -73,7 +72,7 @@ class PasteFile(db.Model):
 
     @classmethod
     def create_by_uploadFile(cls, uploadedFile):
-        rst = cls(secure_filename(uploadedFile.filename),
+        rst = cls(uploadedFile.filename,
                   uploadedFile.mimetype, 0)
         uploadedFile.save(rst.path)
         duplicated = False
@@ -110,7 +109,7 @@ class PasteFile(db.Model):
 
         img = cropresize2.crop_resize(
             Image.open(uploadedFile), (int(width), int(height)))
-        rst = cls(secure_filename(uploadedFile.filename),
+        rst = cls(uploadedFile.filename,
                   uploadedFile.mimetype, 0)
         img.save(rst.path)
 

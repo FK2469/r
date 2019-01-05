@@ -9,7 +9,7 @@ from ext import db, mako, render_template
 from models import PasteFile
 
 RANDOM_SEQ = ascii_uppercase + ascii_lowercase + digits
-ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp3'])
 
 
 app = Flask(__name__)
